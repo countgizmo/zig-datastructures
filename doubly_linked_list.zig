@@ -21,7 +21,19 @@ fn DoublyLinkedList(comptime T: type) type {
         tail: ?*Node,
         allocator: Allocator,
 
-        fn init(allocator: Allocator) Self {
+        fn getAt(self: Self, index: usize) ?*Node {
+            var i: usize = 0;
+            var current = self.head;
+            while (i < index) : (i += 1) {
+                if (current) |curr| {
+                    current = curr.next;
+                }
+            }
+
+            return current;
+        }
+
+        pub fn init(allocator: Allocator) Self {
             return Self{
                 .len = 0,
                 .head = null,
@@ -30,7 +42,7 @@ fn DoublyLinkedList(comptime T: type) type {
             };
         }
 
-        fn prepend(self: *Self, key: T) !void {
+        pub fn prepend(self: *Self, key: T) !void {
             const node = try self.allocator.create(Node);
             node.* = .{ .key = key, .prev = null };
 
@@ -45,7 +57,7 @@ fn DoublyLinkedList(comptime T: type) type {
             self.len += 1;
         }
 
-        fn append(self: *Self, key: T) !void {
+        pub fn append(self: *Self, key: T) !void {
             const node = try self.allocator.create(Node);
             node.key = key;
             node.next = null;
@@ -61,119 +73,153 @@ fn DoublyLinkedList(comptime T: type) type {
             self.len += 1;
         }
 
-        fn insertAt(self: *Self, key: T, index: usize) !void {
-            if (index >= self.len) {
+        pub fn insertAt(self: *Self, key: T, index: usize) !void {
+            if (index > self.len) {
                 return error.OutOfBounds;
+            }
+
+            if (index == 0) {
+                return self.prepend(key);
+            }
+
+            if (index == self.len) {
+                return self.append(key);
             }
 
             const node = try self.allocator.create(Node);
             node.key = key;
 
-            var i: usize = 0;
-            var current = self.head;
-            while (i < index - 1) : (i += 1) {
-                if (current) |curr| {
-                    current = curr.next;
-                }
-            }
-
-            node.prev = current;
-            node.next = current.?.next;
-            current.?.next = node;
+            var current = self.getAt(index);
+            node.next = current;
+            node.prev = current.?.prev;
+            current.?.prev.?.next = node;
+            current.?.prev = node;
 
             self.len += 1;
         }
 
-        fn removeAt(self: *Self, index: usize) !T {
+        pub fn removeAt(self: *Self, index: usize) !T {
             if (index >= self.len) {
                 return error.OutOfBounds;
             }
 
-            var i: usize = 0;
-            var current = self.head;
+            var current = self.getAt(index);
 
-            while (i < index) : (i += 1) {
-                if (current) |curr| {
-                    current = curr.next;
-                }
+            self.len -= 1;
+
+            if (self.len == 0) {
+                const old_head = self.head;
+                self.allocator.destroy(self.tail.?);
+                self.allocator.destroy(self.head.?);
+                self.tail = null;
+                self.head = null;
+
+                return old_head.?.key;
             }
 
-            var removed = current;
-
-            if (i == self.len - 1) {
-                // last element
-                removed = self.tail;
-                self.tail = self.tail.?.prev;
+            if (current == self.tail) {
+                const old_tail = self.tail;
+                self.tail = current.?.prev;
                 self.tail.?.next = null;
-            } else if (i == 0) {
-                // first element
-                removed = self.head;
+                self.allocator.destroy(old_tail.?);
+
+                return old_tail.?.key;
+            }
+
+            if (current == self.head) {
+                const old_head = self.head;
                 self.head = self.head.?.next;
                 self.head.?.prev = null;
-            } else {
+                self.allocator.destroy(old_head.?);
+
+                return old_head.?.key;
+            }
+
+            if (current.?.prev != null) {
                 current.?.prev.?.next = current.?.next;
+            }
+
+            if (current.?.next != null) {
                 current.?.next.?.prev = current.?.prev;
             }
 
             self.allocator.destroy(current.?);
-            self.len -= 1;
-
-            return removed.?.key;
+            return current.?.key;
         }
 
-        fn remove(self: *Self, key: T) ?T {
+        pub fn remove(self: *Self, key: T) ?T {
             var i: usize = 0;
             var current = self.head;
 
             while (i < self.len) : (i += 1) {
                 if (current) |curr| {
                     if (curr.key == key) {
-                        if (i == self.len - 1) {
-                            // last element
-                            const old_tail = self.tail;
-                            self.tail = self.tail.?.prev;
-                            self.tail.?.next = null;
-                            self.allocator.destroy(old_tail.?);
-                        } else if (i == 0) {
-                            // first element
-                            const old_head = self.head;
-                            self.head = self.head.?.next;
-                            self.head.?.prev = null;
-                            self.allocator.destroy(old_head.?);
-                        } else {
-                            current.?.prev.?.next = current.?.next;
-                            current.?.next.?.prev = current.?.prev;
-                            self.allocator.destroy(current.?);
-                        }
-                        self.len -= 1;
-                        return key;
+                        break;
                     }
                     current = curr.next;
                 }
             }
 
-            return null;
+            if (current == null) {
+                return null;
+            }
+
+            self.len -= 1;
+
+            if (self.len == 0) {
+                const old_head = self.head;
+                self.allocator.destroy(self.tail.?);
+                self.allocator.destroy(self.head.?);
+                self.tail = null;
+                self.head = null;
+
+                return old_head.?.key;
+            }
+
+            if (current == self.tail) {
+                const old_tail = self.tail;
+                self.tail = current.?.prev;
+                self.tail.?.next = null;
+                self.allocator.destroy(old_tail.?);
+
+                return old_tail.?.key;
+            }
+
+            if (current == self.head) {
+                const old_head = self.head;
+                self.head = self.head.?.next;
+                self.head.?.prev = null;
+                self.allocator.destroy(old_head.?);
+
+                return old_head.?.key;
+            }
+
+            if (current.?.prev != null) {
+                current.?.prev.?.next = current.?.next;
+            }
+
+            if (current.?.next != null) {
+                current.?.next.?.prev = current.?.prev;
+            }
+
+            self.allocator.destroy(current.?);
+            return current.?.key;
         }
 
-        fn get(self: Self, index: usize) !T {
+        pub fn get(self: Self, index: usize) !T {
             if (index >= self.len) {
                 return error.OutOfBounds;
             }
 
-            var i: usize = 0;
-            var current = self.head;
-            while (i < index) : (i += 1) {
-                if (current) |curr| {
-                    current = curr.next;
-                }
-            }
+            const current = self.getAt(index);
 
             return current.?.key;
         }
 
-        fn print(self: *Self) void {
+        pub fn print(self: *Self) void {
             var current = self.head;
             while (current) |cur| {
+                std.log.warn("item = {c}", .{cur.key});
                 current = cur.next;
             }
         }
@@ -235,6 +281,14 @@ test "insertAt" {
 
     try expect(item_x == 'x');
     try expect(listOfChars.tail.?.key == 'c');
+
+    try listOfChars.insertAt('O', 0);
+    try expect(listOfChars.len == 5);
+    try expect(listOfChars.head.?.key == 'O');
+
+    try listOfChars.insertAt('z', 5);
+    try expect(listOfChars.len == 6);
+    try expect(listOfChars.tail.?.key == 'z');
 }
 
 test "removeAt" {
