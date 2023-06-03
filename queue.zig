@@ -2,8 +2,9 @@ const std = @import("std");
 const expect = std.testing.expect;
 const expectEqual = std.testing.expectEqual;
 const print = std.debug.print;
+const Allocator = std.mem.Allocator;
 
-fn Queue(comptime T: type) type {
+pub fn Queue(comptime T: type) type {
     return struct {
         const This = @This();
         const Node = struct {
@@ -11,12 +12,14 @@ fn Queue(comptime T: type) type {
             next: ?*Node = null,
         };
 
+        allocator: Allocator,
         head: ?*Node,
         tail: ?*Node,
         len: usize,
 
-        pub fn init() This {
+        pub fn init(allocator: Allocator) This {
             return This{
+                .allocator = allocator,
                 .head = null,
                 .tail = null,
                 .len = 0,
@@ -24,7 +27,7 @@ fn Queue(comptime T: type) type {
         }
 
         pub fn enqueue(this: *This, value: T) !void {
-            const node = try std.heap.page_allocator.create(Node);
+            const node = try this.allocator.create(Node);
             node.* = .{ .key = value, .next = null };
 
             if (this.tail) |tail| {
@@ -38,20 +41,26 @@ fn Queue(comptime T: type) type {
         }
 
         pub fn deque(this: *This) ?T {
+            var current: ?T = null;
             if (this.head) |head| {
-                defer std.heap.page_allocator.destroy(head);
+                defer this.allocator.destroy(head);
                 this.head = head.next;
-                this.len -= 1;
-                return head.key;
+                current = head.key;
+            }
+
+            if (this.len == 1) {
+                this.head = this.tail;
             }
 
             if (this.len == 0 and this.tail != null) {
-                defer std.heap.page_allocator.destroy(this.tail.?);
+                defer this.allocator.destroy(this.tail.?);
                 this.tail = null;
                 this.head = null;
+                return null;
             }
 
-            return null;
+            this.len -= 1;
+            return current;
         }
 
         pub fn peek(this: *This) ?T {
@@ -64,14 +73,18 @@ fn Queue(comptime T: type) type {
 }
 
 test "init" {
-    var queue = Queue(i32).init();
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer _ = arena.deinit();
+    var queue = Queue(i32).init(arena.allocator());
     try expect(null == queue.head);
     try expect(null == queue.tail);
 }
 
 test "enqueue" {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer _ = arena.deinit();
     const QueueOfNumbers = Queue(i32);
-    var queue = QueueOfNumbers.init();
+    var queue = QueueOfNumbers.init(arena.allocator());
 
     try queue.enqueue(1);
 
@@ -85,8 +98,10 @@ test "enqueue" {
 }
 
 test "peek" {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer _ = arena.deinit();
     const QueueOfNumbers = Queue(i32);
-    var queue = QueueOfNumbers.init();
+    var queue = QueueOfNumbers.init(arena.allocator());
     try queue.enqueue(1);
 
     var value = queue.peek();
@@ -95,8 +110,10 @@ test "peek" {
 }
 
 test "deque" {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer _ = arena.deinit();
     const QueueOfNumbers = Queue(i32);
-    var queue = QueueOfNumbers.init();
+    var queue = QueueOfNumbers.init(arena.allocator());
 
     try queue.enqueue(1);
     try queue.enqueue(2);
@@ -105,9 +122,14 @@ test "deque" {
     try expect(queue.head.?.key == 1);
     try expect(queue.tail.?.key == 3);
 
-    const value = queue.deque();
+    var value = queue.deque();
 
     try expect(queue.head.?.key == 2);
     try expect(queue.tail.?.key == 3);
     try expect(value.? == 1);
+
+    value = queue.deque();
+
+    try expect(queue.tail.?.key == 3);
+    try expect(value.? == 2);
 }
