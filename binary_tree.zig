@@ -59,11 +59,9 @@ pub fn Tree(comptime T: type) type {
 
             if (node.?.value < needle) {
                 return self.findAt(node.?.right, needle);
-            } else {
-                return self.findAt(node.?.left, needle);
             }
 
-            return false;
+            return self.findAt(node.?.left, needle);
         }
 
         pub fn find(self: *Self, needle: T) bool {
