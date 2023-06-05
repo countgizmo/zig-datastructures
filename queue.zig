@@ -42,21 +42,20 @@ pub fn Queue(comptime T: type) type {
 
         pub fn deque(this: *This) ?T {
             var current: ?T = null;
+
+            if (this.len == 0) {
+                this.tail = null;
+                this.head = null;
+                return null;
+            }
+
             if (this.head) |head| {
-                defer this.allocator.destroy(head);
                 this.head = head.next;
                 current = head.key;
             }
 
             if (this.len == 1) {
-                this.head = this.tail;
-            }
-
-            if (this.len == 0 and this.tail != null) {
-                defer this.allocator.destroy(this.tail.?);
-                this.tail = null;
-                this.head = null;
-                return null;
+                this.tail = this.head;
             }
 
             this.len -= 1;
@@ -127,9 +126,19 @@ test "deque" {
     try expect(queue.head.?.key == 2);
     try expect(queue.tail.?.key == 3);
     try expect(value.? == 1);
+    try expect(queue.len == 2);
 
     value = queue.deque();
 
     try expect(queue.tail.?.key == 3);
     try expect(value.? == 2);
+    try expect(queue.len == 1);
+
+    value = queue.deque();
+    try expect(value.? == 3);
+    try expect(queue.len == 0);
+
+    value = queue.deque();
+    try expect(value == null);
+    try expect(queue.len == 0);
 }
