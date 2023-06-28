@@ -59,15 +59,16 @@ pub fn MaxHeap(comptime T: type) type {
             try self.data.appendSlice(rawData);
             self.len = rawData.len;
 
-            var i = self.len / 2; // this is where the leaves start
-            // Starting with the leaves we maxHeapify to make sure they are in the right
-            // position.
-            // Then we do it for the root and then we're done.
+            var i = (self.len / 2) - 1;
+            // The first leaf starts at n/2.
+            // Starting with the first non-leaf call maxHeapify on every node including root.
             while (i > 0) : (i -= 1) {
                 self.maxHeapify(i);
             }
 
             // Last maxHeapify for i = 0 (the root)
+            // Cause of usize restricitons to not be negative.
+            // Otherwise we could've looped till i < 0;
             self.maxHeapify(i);
         }
 
