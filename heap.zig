@@ -95,16 +95,15 @@ pub fn Heap(comptime T: type) type {
 }
 
 test "init" {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer _ = arena.deinit();
-    const heap = Heap(i16).init(arena.allocator());
+    var allocator = std.testing.allocator;
+    const heap = Heap(i16).init(allocator);
     try expect(heap.data.items.len == 0);
 }
 
 test "insert" {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer _ = arena.deinit();
-    var heap = Heap(i16).init(arena.allocator());
+    var allocator = std.testing.allocator;
+    var heap = Heap(i16).init(allocator);
+    defer heap.data.deinit();
     try heap.insert(27);
     try heap.insert(5);
     try heap.insert(10);
@@ -112,9 +111,9 @@ test "insert" {
 }
 
 test "delete" {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer _ = arena.deinit();
-    var heap = Heap(i16).init(arena.allocator());
+    var allocator = std.testing.allocator;
+    var heap = Heap(i16).init(allocator);
+    defer heap.data.deinit();
 
     try heap.insert(27);
     try heap.insert(5);
