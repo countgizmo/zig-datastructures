@@ -76,8 +76,8 @@ pub fn MaxPriorityQueue(comptime T: type) type {
 
             const max = self.data.items[0];
             self.data.items[0] = self.data.items[self.len - 1];
-            self.maxHeapify(0);
             self.len -= 1;
+            self.maxHeapify(0);
 
             return max;
         }
