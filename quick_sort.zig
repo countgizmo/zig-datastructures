@@ -1,50 +1,74 @@
 const std = @import("std");
 const expect = std.testing.expect;
 const expectEqual = std.testing.expectEqual;
-const info = std.debug.print;
 
-fn partition(arr: []i32, lo: usize, hi: usize) usize {
-    const pivot = arr[hi];
+fn partition(arr: []i32, p: usize, r: usize) usize {
+    var pivot = arr[r];
+    var i: i32 = @intCast(i32, p) - 1;
+    var j = p;
 
-    var idx: i32 = @intCast(i32, lo) - 1;
-    var i = lo;
-    while (i < hi) : (i += 1) {
-        if (arr[i] <= pivot) {
-            idx += 1;
-            const arr_idx = @intCast(usize, idx);
-            const temp = arr[i];
-            arr[i] = arr[arr_idx];
-            arr[arr_idx] = temp;
+    while (j < r) : (j += 1) {
+        if (arr[j] <= pivot) {
+            i += 1;
+            const idx = @intCast(usize, i);
+            const temp = arr[j];
+            arr[j] = arr[idx];
+            arr[idx] = temp;
         }
     }
 
-    idx += 1;
-    const arr_idx = @intCast(usize, idx);
+    const idx = @intCast(usize, i + 1);
+    arr[r] = arr[idx];
+    arr[idx] = pivot;
 
-    arr[hi] = arr[arr_idx];
-    arr[arr_idx] = pivot;
-
-    return arr_idx;
+    return idx;
 }
 
-fn qs(arr: []i32, lo: usize, hi: usize) void {
-    if (lo >= hi) {
-        return;
+fn quickSort(arr: []i32, p: usize, r: usize) void {
+    if (p < r) {
+        var q = partition(arr, p, r);
+        if (q > 0) {
+            quickSort(arr, p, q - 1);
+        }
+        quickSort(arr, q + 1, r);
     }
-
-    const pivot_idx = partition(arr, lo, hi);
-
-    if (pivot_idx > 0) qs(arr, lo, pivot_idx - 1);
-    qs(arr, pivot_idx + 1, hi);
 }
 
 pub fn sort(arr: []i32) void {
-    qs(arr, 0, arr.len - 1);
+    quickSort(arr, 0, arr.len - 1);
+}
+
+test "partition" {
+    var my_array = [_]i32{ 3, 1, 5, 6, 9, 4, 15, 11 };
+    var expected = [_]i32{ 3, 1, 5, 6, 9, 4, 11, 15 };
+    const new_pivot = partition(&my_array, 0, my_array.len - 1);
+    try expect(new_pivot == 6);
+    try expectEqual(expected, my_array);
+
+    my_array = [_]i32{ 2, 8, 7, 1, 3, 5, 6, 4 };
+    expected = [_]i32{ 2, 1, 3, 4, 7, 5, 6, 8 };
+    const new_pivot2 = partition(&my_array, 0, my_array.len - 1);
+    try expect(new_pivot2 == 3);
+    try expectEqual(expected, my_array);
 }
 
 test "sort array" {
     var my_array = [_]i32{ 3, 1, 5, 6, 9, 4, 15, 11 };
     var expected = [_]i32{ 1, 3, 4, 5, 6, 9, 11, 15 };
+    sort(&my_array);
+    try expectEqual(expected, my_array);
+}
+
+test "sort 2" {
+    var my_array = [_]i32{ 2, 8, 7, 1, 3, 5, 6, 4 };
+    var expected = [_]i32{ 1, 2, 3, 4, 5, 6, 7, 8 };
+    sort(&my_array);
+    try expectEqual(expected, my_array);
+}
+
+test "nothing to sort" {
+    var my_array = [_]i32{ 1, 2, 3, 4, 5, 6, 7, 8 };
+    var expected = [_]i32{ 1, 2, 3, 4, 5, 6, 7, 8 };
     sort(&my_array);
     try expectEqual(expected, my_array);
 }

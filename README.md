@@ -1,4 +1,6 @@
 # zig-datastructures
 Learning Zig by implementing data structures and algorithms
 
-Based on the course by the Primeagen.
+Inspiration:
+- algorithms and data structure course by the Primeagen
+- Introduction to Algorithms (3rd edition) by some smart people
